@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Display Webcam Stream</title>
+ 
+<style>
+#container {
+	margin: 0px auto;
+	width: 500px;
+	height: 375px;
+	border: 10px #333 solid;
+}
+#videoElement {
+	width: 500px;
+	height: 375px;
+	background-color: #666;
+}
+</style>
+</head>
+ 
+<body>
+<div id="container">
+	<video autoplay="true" id="videoElement">
+	
+	</video>
+</div>
+<input type="button" onclick="stop()" value="Stop" />
+<input type="button" onclick="captureImage()" value="Capture" />
+<div id="output"></div>
+<div id="squares"></div>
+<script>
+var video = document.querySelector("#videoElement");
+
+if (navigator.mediaDevices.getUserMedia) {
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(function (stream) {
+      video.srcObject = stream;
+    })
+    .catch(function (err0r) {
+      console.log("Something went wrong!");
+    });
+}
+
+var captureImage = function() {
+
+	document.getElementById("squares").innerHTML = "";
+	var scale = 0.5;
+    var canvas = document.createElement("canvas");
+    canvas.setAttribute("id", "canvas");
+    canvas.width = video.videoWidth * scale;
+    canvas.height = video.videoHeight * scale;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+	var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);	
+
+	var x, y;
+    x = 35;
+    y = 25;
+    for (var yCount = 0; yCount < 5; yCount++){
+    	for (var xCount = 0; xCount < 5; xCount++){
+			var rgb = getRgb(ctx, x, y);
+            x+=22;
+            var parsedColour = parseColour(rgb);
+            printColour(rgb, parsedColour);
+            
+      	}
+        x = 25;
+        y+=16;
+        newLine();
+    }
+    
+    ctx.putImageData(imgData, 0, 0);
+    
+    var img = document.createElement("img");
+    img.src = canvas.toDataURL();
+	img.setAttribute("id", "rendered");
+    document.getElementById("output").innerHTML = "";
+    document.getElementById("output").appendChild(img);
+};
+
+function printColour(rgb, parsedColour) {
+	var col = parsedColour[0] == "u" ? "255,0,0" : rgb;
+	var s = document.createElement("span");
+    s.setAttribute("style", "display: inline-block; background-color: rgb(" + col + "); width: 20px; height: 20px;");
+    s.innerText = parsedColour[0];
+    document.getElementById("squares").appendChild(s);    
+}
+
+function parseColour(rgb) {
+	var c = rgb.split(',');
+    var result = "unknown";
+    
+    if (c[1]*1 > c[0]*1 && c[1]*1 > c[2]*1 && c[1]*1 > 100) {
+    	result = "green";
+    }
+    else if (c[0]*1 < 50 && c[1]*1 < 50 && c[2]*1 < 50) {
+    	result = "black";
+    }
+    else if (c[0]*1 > 100 && c[1]*1 > 100 && c[2]*1 > 100) {
+    	result = "tan";
+    }
+    return result;
+}
+
+function newLine() {
+	document.getElementById("squares").appendChild(document.createElement("br"));
+}
+
+function getRgb(ctx, x, y) {
+	var imgData = ctx.getImageData(x, y, 1, 1);
+    var r = imgData.data[0];
+    var g = imgData.data[1];
+    var b = imgData.data[2];
+    var result = r + ',' + g + ',' + b;
+    return result;
+}
+
+function stop(e) {
+  var stream = video.srcObject;
+  var tracks = stream.getTracks();
+
+  for (var i = 0; i < tracks.length; i++) {
+    var track = tracks[i];
+    track.stop();
+  }
+
+  video.srcObject = null;
+}
+</script>
+</body>
+</html>
