@@ -1,132 +1,248 @@
 <!DOCTYPE html>
 <html>
-<head>
-<meta charset="utf-8">
-<title>Display Webcam Stream</title>
+  <head>
+    <meta charset="utf-8">
+    <title>Display Webcam Stream</title>
+    
+    <style>
+      #container {
+        //margin: 0px auto;
+        width: 500px;
+        height: 375px;
+        border: 10px #333 solid;
+      }
+      #videoElement {
+        width: 500px;
+        height: 375px;
+        background-color: #666;
+      }
+      .output {
+        display:inline-block;
+        width: 330px;
+        height: 250px;
+      }
+      input[type=button] {
+        height: 50px;
+        width: 80px;
+      }
+    </style>
+  </head>
  
-<style>
-#container {
-	margin: 0px auto;
-	width: 500px;
-	height: 375px;
-	border: 10px #333 solid;
-}
-#videoElement {
-	width: 500px;
-	height: 375px;
-	background-color: #666;
-}
-</style>
-</head>
- 
-<body>
-<div id="container">
-	<video autoplay="true" id="videoElement">
-	
-	</video>
-</div>
-<input type="button" onclick="stop()" value="Stop" />
-<input type="button" onclick="captureImage()" value="Capture" />
-<div id="output"></div>
-<div id="squares"></div>
-<script>
-var video = document.querySelector("#videoElement");
+  <body onload="main()">
+  <div id="container">
+    <video autoplay="true" id="videoElement">
+    
+    </video>
+  </div>
+  <input type="button" onclick="stop()" value="Stop" />
+  <input type="button" onclick="captureImage(1)" value="Capture 1" />
+  <input type="button" onclick="captureImage(2)" value="Capture 2" /><br />
+  <div class="output" id="output_1"></div>
+  <div class="output" id="squares_1"></div><br />
+  <div class="output" id="output_2"></div>
+  <div class="output" id="squares_2"></div>
+  <script>
+    var video = document.getElementById("videoElement");
 
-if (navigator.mediaDevices.getUserMedia) {
-  navigator.mediaDevices.getUserMedia({ video: true })
-    .then(function (stream) {
-      video.srcObject = stream;
-    })
-    .catch(function (err0r) {
-      console.log("Something went wrong!");
-    });
-}
+    if (navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function (stream) {
+          video.srcObject = stream;
+        })
+        .catch(function (err0r) {
+          console.log("Something went wrong!", err0r);
+        });
+    }
 
-var captureImage = function() {
+    var squares = [
+      ["", "", "", "", ""],
+      ["", "", "", "", ""],
+      ["", "", "", "", ""],
+      ["", "", "", "", ""],
+      ["", "", "", "", ""]
+    ];
 
-	document.getElementById("squares").innerHTML = "";
-	var scale = 0.5;
-    var canvas = document.createElement("canvas");
-    canvas.setAttribute("id", "canvas");
-    canvas.width = video.videoWidth * scale;
-    canvas.height = video.videoHeight * scale;
-    var ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-	var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);	
+    function main() {
+      //Reset
+      reset(1);
+      reset(2);
+      console.log("ready");
+    }
 
-	var x, y;
-    x = 35;
-    y = 25;
-    for (var yCount = 0; yCount < 5; yCount++){
-    	for (var xCount = 0; xCount < 5; xCount++){
-			var rgb = getRgb(ctx, x, y);
-            x+=22;
-            var parsedColour = parseColour(rgb);
-            printColour(rgb, parsedColour);
-            
-      	}
+    function reset(counter) {
+      document.getElementById("squares_" + counter).innerHTML = "";
+      document.getElementById("output_" + counter).innerHTML = "";
+    }
+
+    function getCanvasContext(canvas) {
+      
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      return ctx;
+    }
+
+    function getCanvas() {
+      var scale = 0.5;
+
+      //Set up the canvas to capture the image
+      var canvas = document.createElement("canvas");
+      canvas.setAttribute("id", "canvas");
+
+      //Scale the canvas
+      canvas.width = video.videoWidth * scale;
+      canvas.height = video.videoHeight * scale;
+
+      return canvas;
+    }
+
+    function renderImage(counter, imgData, context, canvas) {
+      //Render the image onto the screen
+      context.putImageData(imgData, 0, 0);
+
+      var img = document.createElement("img");
+      img.src = canvas.toDataURL();
+      img.setAttribute("id", "rendered_" + counter);
+
+      document.getElementById("output_" + counter).appendChild(img);
+    }
+
+    function captureImage(counter) {     
+      reset(counter);
+      var canvas = getCanvas();
+      var context = getCanvasContext(canvas);
+
+      //Capture the image
+      var imgData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+      //Initial coordinates for processing
+      var x = 35;
+      var y = 25;
+
+      //Loop across 5 columns for 5 rows
+      for (var yCount = 0; yCount < 5; yCount++){
+
+        for (var xCount = 0; xCount < 5; xCount++){
+          var rgb = getRgb(context, x, y);
+          x+=22;
+          var parsedColour = parseColour(rgb);
+
+          //Append the first letter of the parsed colour onto anything already in the array
+          //Do an alpha sort to make comparison easier later
+          var existing = squares[yCount][xCount];
+          var sorted = (existing += parsedColour[0]).split('').sort().join('');
+          squares[yCount][xCount] = sorted;
+
+          printColour(rgb, parsedColour, counter);              
+        }
+
+        //Reset the X coord to the starting position and increment Y to the next row
         x = 25;
         y+=16;
-        newLine();
+
+        newLine(counter);
+      }
+
+      renderImage(counter, imgData, context, canvas);
+
+      console.log(squares);
+
+      if (counter == 2) {
+        calculate(squares);
+      }
+    };
+
+    function calculate(sq) {
+      var greens = 0;
+      var blacks = 0;
+      var overlappingGreens = 0;
+      var greenBlacks = 0;
+      var tanBlacks = 0;
+      var overlappingBlacks = 0;
+      
+      //Loop across 5 columns for 5 rows
+      for (var yCount = 0; yCount < 5; yCount++) {
+        for (var xCount = 0; xCount < 5; xCount++) {
+          var val = sq[yCount][xCount];
+          
+          if (val.indexOf("g") > -1)
+            greens++;
+
+          if (val.indexOf("b") > -1)
+            blacks++;
+
+          if (val == "gg")
+            overlappingGreens++;
+
+          if (val == "bb")
+            overlappingGreens++;
+
+          if (val == "bg")
+            greenBlacks++;
+          
+          if (val == "bt")
+            tanBlacks++;
+          
+        }
+      }
+
+      console.log("RESULTS:");
+      console.log("greens", greens);
+      console.log("blacks", blacks);
+      console.log("overlapping greens", overlappingGreens);
+      console.log("overlapping blacks", overlappingBlacks);
+      console.log("green blacks", greenBlacks);
+      console.log("tan blacks", tanBlacks);
     }
-    
-    ctx.putImageData(imgData, 0, 0);
-    
-    var img = document.createElement("img");
-    img.src = canvas.toDataURL();
-	img.setAttribute("id", "rendered");
-    document.getElementById("output").innerHTML = "";
-    document.getElementById("output").appendChild(img);
-};
 
-function printColour(rgb, parsedColour) {
-	var col = parsedColour[0] == "u" ? "255,0,0" : rgb;
-	var s = document.createElement("span");
-    s.setAttribute("style", "display: inline-block; background-color: rgb(" + col + "); width: 20px; height: 20px;");
-    s.innerText = parsedColour[0];
-    document.getElementById("squares").appendChild(s);    
-}
-
-function parseColour(rgb) {
-	var c = rgb.split(',');
-    var result = "unknown";
-    
-    if (c[1]*1 > c[0]*1 && c[1]*1 > c[2]*1 && c[1]*1 > 100) {
-    	result = "green";
+    function printColour(rgb, parsedColour, counter) {
+      var col = rgb; //parsedColour[0] == "u" ? "255,0,0" : rgb;
+      var s = document.createElement("span");
+        s.setAttribute("style", "display: inline-block; background-color: rgb(" + col + "); width: 40px; height: 40px;");
+        s.innerText = parsedColour[0];
+        document.getElementById("squares_" + counter).appendChild(s);    
     }
-    else if (c[0]*1 < 50 && c[1]*1 < 50 && c[2]*1 < 50) {
-    	result = "black";
+
+    function parseColour(rgb) {
+      var c = rgb.split(',');
+      var result = "unknown";
+      
+      if (c[1]*1 > c[0]*1 && c[1]*1 > c[2]*1 && c[1]*1 > 130 && c[0]*1 < 100 && c[2]*1 < 100) {
+        result = "green";
+      }
+      else if (c[0]*1 < 65 && c[1]*1 < 65 && c[2]*1 < 65) {
+        result = "black";
+      }
+      else if (c[0]*1 > 120 && c[1]*1 > 120 && c[2]*1 > 120) {
+        result = "tan";
+      }
+      return result;
     }
-    else if (c[0]*1 > 100 && c[1]*1 > 100 && c[2]*1 > 100) {
-    	result = "tan";
+
+    function newLine(counter) {
+      document.getElementById("squares_" + counter).appendChild(document.createElement("br"));
     }
-    return result;
-}
 
-function newLine() {
-	document.getElementById("squares").appendChild(document.createElement("br"));
-}
+    function getRgb(ctx, x, y) {
+      var imgData = ctx.getImageData(x, y, 1, 1);
+        var r = imgData.data[0];
+        var g = imgData.data[1];
+        var b = imgData.data[2];
+        var result = r + ',' + g + ',' + b;
+        return result;
+    }
 
-function getRgb(ctx, x, y) {
-	var imgData = ctx.getImageData(x, y, 1, 1);
-    var r = imgData.data[0];
-    var g = imgData.data[1];
-    var b = imgData.data[2];
-    var result = r + ',' + g + ',' + b;
-    return result;
-}
+    function stop(e) {
+      var stream = video.srcObject;
+      var tracks = stream.getTracks();
 
-function stop(e) {
-  var stream = video.srcObject;
-  var tracks = stream.getTracks();
+      for (var i = 0; i < tracks.length; i++) {
+        var track = tracks[i];
+        track.stop();
+      }
 
-  for (var i = 0; i < tracks.length; i++) {
-    var track = tracks[i];
-    track.stop();
-  }
-
-  video.srcObject = null;
-}
-</script>
-</body>
+      video.srcObject = null;
+    }
+    </script>
+  </body>
 </html>
