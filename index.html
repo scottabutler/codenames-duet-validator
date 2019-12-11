@@ -116,14 +116,14 @@
       var imgData = context.getImageData(0, 0, canvas.width, canvas.height);
 
       //Initial coordinates for processing
-      var x = 35;
+      var x = 25;
       var y = 25;
 
       //Loop across 5 columns for 5 rows
       for (var yCount = 0; yCount < 5; yCount++){
 
         for (var xCount = 0; xCount < 5; xCount++){
-          var rgb = getRgb(context, x, y);
+          var rgb = getAverageRgb(context, x, y);
           x+=22;
           var parsedColour = parseColour(rgb);
 
@@ -138,7 +138,7 @@
 
         //Reset the X coord to the starting position and increment Y to the next row
         x = 25;
-        y+=16;
+        y += 16;
 
         newLine(counter);
       }
@@ -165,17 +165,20 @@
         for (var xCount = 0; xCount < 5; xCount++) {
           var val = sq[yCount][xCount];
           
-          if (val.indexOf("g") > -1)
+          greens += val.split('g').length - 1;
+          blacks += val.split('b').length - 1;
+
+          /*if (val.indexOf("g") > -1)
             greens++;
 
           if (val.indexOf("b") > -1)
-            blacks++;
+            blacks++;*/
 
           if (val == "gg")
             overlappingGreens++;
 
           if (val == "bb")
-            overlappingGreens++;
+            overlappingBlacks++;
 
           if (val == "bg")
             greenBlacks++;
@@ -207,13 +210,17 @@
       var c = rgb.split(',');
       var result = "unknown";
       
-      if (c[1]*1 > c[0]*1 && c[1]*1 > c[2]*1 && c[1]*1 > 130 && c[0]*1 < 100 && c[2]*1 < 100) {
+      var r = c[0]*1;
+      var g = c[1]*1;
+      var b = c[2]*1;
+
+      if (g > r+30 && g > b+30 && r < 100 && b < 100) {
         result = "green";
       }
-      else if (c[0]*1 < 65 && c[1]*1 < 65 && c[2]*1 < 65) {
+      else if (r < 65 && g < 65 && b < 65) {
         result = "black";
       }
-      else if (c[0]*1 > 120 && c[1]*1 > 120 && c[2]*1 > 120) {
+      else if (Math.floor((r + g + b)/3) > 90) { //(r > 120 && g > 120 && b > 120) {
         result = "tan";
       }
       return result;
@@ -225,11 +232,33 @@
 
     function getRgb(ctx, x, y) {
       var imgData = ctx.getImageData(x, y, 1, 1);
-        var r = imgData.data[0];
-        var g = imgData.data[1];
-        var b = imgData.data[2];
-        var result = r + ',' + g + ',' + b;
-        return result;
+      var r = imgData.data[0];
+      var g = imgData.data[1];
+      var b = imgData.data[2];
+      var result = r + ',' + g + ',' + b;
+      return result;
+    }    
+
+    function getAverageRgb(ctx, x, y) {
+      var captureWidth = 15;
+      var captureHeight = 8;
+      var totalDataPoints = captureWidth * captureHeight * 4; //Data will be one array of rgba values, 4 entries per pixel
+      var totalPixels = totalDataPoints / 4;
+
+      var imgData = ctx.getImageData(x, y, captureWidth, captureHeight);
+
+      var r = 0; var g = 0; var b = 0;
+
+      for (var i = 0; i < totalDataPoints; i+=4) {        
+        r += imgData.data[i];
+        g += imgData.data[i+1];
+        b += imgData.data[i+2];
+      } 
+
+      var result = Math.floor(r / totalPixels) + ',' + Math.floor(g / totalPixels) + ',' + Math.floor(b / totalPixels);
+      console.log(imgData.data);
+      console.log(result);
+      return result;
     }
 
     function stop(e) {
