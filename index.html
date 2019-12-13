@@ -2,14 +2,26 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Display Webcam Stream</title>
+    <title>Codenames Duet Validator</title>
     
     <style>
-      #container {
-        //margin: 0px auto;
-        width: 500px;
+      body { font-family: Arial, Helvetica, sans-serif; }
+      .valid {background-color: green; color: white;}
+      .invalid {background-color: red; color: white;}
+      #videoContainer, #results {        
         height: 375px;
-        border: 10px #333 solid;
+        display: inline-block;
+        vertical-align: top;
+      }
+      #videoContainer {
+        width: 500px;        
+      }
+      #results {
+        border:1px solid black;
+        width: 200px;
+      }
+      #results p {
+        margin: 4px 0;
       }
       #videoElement {
         width: 500px;
@@ -20,29 +32,49 @@
         display:inline-block;
         width: 330px;
         height: 250px;
+        vertical-align: top;
       }
       input[type=button] {
         height: 50px;
         width: 80px;
+        top: 520;
       }
     </style>
   </head>
  
   <body onload="main()">
-  <div id="container">
+  <div id="videoContainer">
     <video autoplay="true" id="videoElement">
     
     </video>
   </div>
+  <div id="results">
+    <p id="resultHeading">??</p>
+    <p><span>Overlapping greens: </span><span id="overlappingGreens"></span></p>
+    <p><span>Total greens: </span><span id="totalGreens"></span></p>
+    <p><span>Distinct greens: </span><span id="distinctGreens"></span></p>
+    <p><span>Overlapping blacks: </span><span id="overlappingBlacks"></span></p>
+    <p><span>Total blacks: </span><span id="totalBlacks"></span></p>
+    <p><span>Green / blacks: </span><span id="greenBlacks"></span></p>
+    <p><span>Black / greens: </span><span id="blackGreens"></span></p>
+    <p><span>Tan / blacks: </span><span id="tanBlacks"></span></p>
+    <p><span>Black / tans: </span><span id="blackTans"></span></p>
+    <p><span>Tan / greens: </span><span id="tanGreens"></span></p>
+    <p><span>Green / tans: </span><span id="greenTans"></span></p>
+    <p><span>Tan / tans: </span><span id="overlappingTans"></span></p>
+    <p><span>Unknowns: </span><span id="unknowns"></span></p>
+  </div>
+  <br />
   <input type="button" onclick="stop()" value="Stop" />
-  <input type="button" onclick="captureImage(1)" value="Capture 1" />
-  <input type="button" onclick="captureImage(2)" value="Capture 2" /><br />
+  <input type="button" id="capture1" onclick="capture1()" value="Capture 1" />
+  <input type="button" id="capture2" onclick="capture2()" value="Capture 2" /><br />
   <div class="output" id="output_1"></div>
   <div class="output" id="squares_1"></div><br />
   <div class="output" id="output_2"></div>
   <div class="output" id="squares_2"></div>
   <script>
     var video = document.getElementById("videoElement");
+    var squares;
 
     if (navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({ video: true })
@@ -54,19 +86,22 @@
         });
     }
 
-    var squares = [
-      ["", "", "", "", ""],
-      ["", "", "", "", ""],
-      ["", "", "", "", ""],
-      ["", "", "", "", ""],
-      ["", "", "", "", ""]
-    ];
+    function resetSquares() {
+      squares = [
+        ["", "", "", "", ""],
+        ["", "", "", "", ""],
+        ["", "", "", "", ""],
+        ["", "", "", "", ""],
+        ["", "", "", "", ""]
+      ];
+    }
 
     function main() {
       //Reset
       reset(1);
       reset(2);
-      console.log("ready");
+      resetSquares();
+      focusButton(1);
     }
 
     function reset(counter) {
@@ -74,11 +109,9 @@
       document.getElementById("output_" + counter).innerHTML = "";
     }
 
-    function getCanvasContext(canvas) {
-      
+    function getCanvasContext(canvas) {      
       var ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
       return ctx;
     }
 
@@ -107,6 +140,22 @@
       document.getElementById("output_" + counter).appendChild(img);
     }
 
+    function capture1() {
+      resetSquares();
+      captureImage(1);
+      focusButton(2);
+    }
+    
+    function capture2() {
+      captureImage(2);
+      calculate(squares);
+      focusButton(1);
+    }
+
+    function focusButton(index) {
+      document.getElementById("capture" + index).focus();
+    }
+
     function captureImage(counter) {     
       reset(counter);
       var canvas = getCanvas();
@@ -130,8 +179,9 @@
           //Append the first letter of the parsed colour onto anything already in the array
           //Do an alpha sort to make comparison easier later
           var existing = squares[yCount][xCount];
-          var sorted = (existing += parsedColour[0]).split('').sort().join('');
-          squares[yCount][xCount] = sorted;
+          //var sorted = (existing += parsedColour[0]).split('').sort().join('');
+          //squares[yCount][xCount] = sorted;
+          squares[yCount][xCount] = existing + parsedColour[0];
 
           printColour(rgb, parsedColour, counter);              
         }
@@ -144,22 +194,31 @@
       }
 
       renderImage(counter, imgData, context, canvas);
-
-      console.log(squares);
-
-      if (counter == 2) {
-        calculate(squares);
-      }
     };
 
     function calculate(sq) {
       var greens = 0;
       var blacks = 0;
+
       var overlappingGreens = 0;
-      var greenBlacks = 0;
-      var tanBlacks = 0;
       var overlappingBlacks = 0;
+
+      var distinctGreens = 0;
+
+      var greenBlacks = 0;
+      var blackGreens = 0;
+
+      var tanBlacks = 0;
+      var blackTans = 0;
       
+      var greenTans = 0;
+      var tanGreens = 0;
+
+      var overlappingTans = 0;
+
+      var unknowns = 0;
+
+      console.log(sq);
       //Loop across 5 columns for 5 rows
       for (var yCount = 0; yCount < 5; yCount++) {
         for (var xCount = 0; xCount < 5; xCount++) {
@@ -167,6 +226,7 @@
           
           greens += val.split('g').length - 1;
           blacks += val.split('b').length - 1;
+          unknowns += val.split('u').length - 1;
 
           /*if (val.indexOf("g") > -1)
             greens++;
@@ -177,25 +237,73 @@
           if (val == "gg")
             overlappingGreens++;
 
+          if (val == "tt")
+            overlappingTans++;
+
           if (val == "bb")
             overlappingBlacks++;
 
           if (val == "bg")
+            blackGreens++;
+
+          if (val == "gb")
             greenBlacks++;
-          
+
           if (val == "bt")
+            blackTans++;
+
+          if (val == "tb")
             tanBlacks++;
+
+          if (val == "gt")
+            greenTans++;
           
+          if (val == "tg")
+            tanGreens++;
         }
       }
 
-      console.log("RESULTS:");
-      console.log("greens", greens);
-      console.log("blacks", blacks);
-      console.log("overlapping greens", overlappingGreens);
-      console.log("overlapping blacks", overlappingBlacks);
-      console.log("green blacks", greenBlacks);
-      console.log("tan blacks", tanBlacks);
+      distinctGreens = greens - overlappingGreens;
+
+      var isValid = (overlappingGreens >= 3) 
+        && (greens == 18) 
+        && (distinctGreens == 15) 
+        && (overlappingBlacks == 1)
+        && (blacks == 6)
+        && (greenBlacks == 1)
+        && (blackGreens == 1)
+        && (tanBlacks == 1)
+        && (blackTans == 1)
+        && (greenTans == 5)
+        && (tanGreens == 5)
+        && (overlappingTans == 7)
+        && (unknowns == 0);
+
+      setHeading(isValid);
+      setValue("overlappingGreens", overlappingGreens + " (3)");
+      setValue("totalGreens", greens + " (18)");
+      setValue("distinctGreens", distinctGreens + " (15)");
+      setValue("overlappingBlacks", overlappingBlacks + " (1)");
+      setValue("totalBlacks", blacks + " (6)");
+      setValue("greenBlacks", greenBlacks + " (1)");
+      setValue("blackGreens", blackGreens + " (1)");
+      setValue("tanBlacks", tanBlacks + " (1)");
+      setValue("blackTans", blackTans + " (1)");
+      setValue("greenTans", greenTans + " (5)");
+      setValue("tanGreens", tanGreens + " (5)");
+      setValue("overlappingTans", overlappingTans + " (7)");
+      setValue("unknowns", unknowns + " (0)");
+    }
+
+    function setValue(id, value) {
+      document.getElementById(id).innerText = value;
+    }
+
+    function setHeading(isValid) {
+      var heading = document.getElementById("resultHeading");
+      var value = isValid ? "valid" : "invalid";
+      heading.setAttribute("class", value);
+      heading.innerText = value.toUpperCase();
     }
 
     function printColour(rgb, parsedColour, counter) {
@@ -256,8 +364,6 @@
       } 
 
       var result = Math.floor(r / totalPixels) + ',' + Math.floor(g / totalPixels) + ',' + Math.floor(b / totalPixels);
-      console.log(imgData.data);
-      console.log(result);
       return result;
     }
 
