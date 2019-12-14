@@ -39,6 +39,7 @@
         width: 80px;
         top: 520;
       }
+      .red { color: red; font-weight: bold; }
     </style>
   </head>
  
@@ -297,10 +298,13 @@
 
     function setValue(id, value, expected) {
       var result = value + " (" + expected + ")";
+      var cssClass = "";
       if (value != expected) {
-        result += " ***";
+        cssClass = "red";
       }
-      document.getElementById(id).innerText = result;
+      var elem = document.getElementById(id);
+      elem.innerText = result;
+      elem.setAttribute("class", cssClass);
     }
 
     function setHeading(isValid) {
@@ -329,7 +333,7 @@
       if (g > r+30 && g > b+30 && r < 100 && b < 100) {
         result = "green";
       }
-      else if (r < 70 && g < 70 && b < 70) {
+      else if (r < 75 && g < 75 && b < 75) {
         result = "black";
       }
       else if (Math.floor((r + g + b)/3) > 90) { //(r > 120 && g > 120 && b > 120) {
